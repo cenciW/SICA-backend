@@ -27,3 +27,49 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model Usuario {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  usuario       String   @unique @db.VarChar(100)
+  senha_hash    String   @map("senha_hash") @db.VarChar(255)
+  nome_completo String?  @map("nome_completo") @db.VarChar(255)
+  ativo         Boolean  @default(true)
+  created_at    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  estufas EstufaUsuario[]
+
+  @@map("usuario")
+}
+
+model EstufaUsuario {
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  estufa_id          String    @map("estufa_id") @db.Uuid
+  usuario_id         String    @map("usuario_id") @db.Uuid
+  role               String    @db.VarChar(50)
+  data_acesso_inicio DateTime  @default(now()) @map("data_acesso_inicio") @db.Timestamp(6)
+  data_acesso_fim    DateTime? @map("data_acesso_fim") @db.Timestamp(6)
+  estufa             Estufa    @relation(fields: [estufa_id], references: [id], onDelete: Cascade)
+  usuario            Usuario   @relation(fields: [usuario_id], references: [id], onDelete: Cascade)
+
+  @@map("estufa_usuario")
+}
+
+model Estufa {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome            String   @db.VarChar(200)
+  localizacao     String?  @db.VarChar(500)
+  largura         Float
+  altura          Float
+  comprimento     Float
+  volume_total    Float?   @map("volume_total")
+  status          String   @default("ativa") @db.VarChar(50)
+  firmware_versao String?  @map("firmware_versao") @db.VarChar(50)
+  created_at      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  usuarios EstufaUsuario[]
+
+  @@map("estufa")
+}
