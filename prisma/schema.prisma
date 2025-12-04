@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,41 +7,26 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  ADMIN
-}
-
-model User {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  name      String?
-  role      Role     @default(USER)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
 model Usuario {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email         String   @unique @db.VarChar(255)
-  usuario       String   @unique @db.VarChar(100)
-  senha_hash    String   @map("senha_hash") @db.VarChar(255)
-  nome_completo String?  @map("nome_completo") @db.VarChar(255)
-  ativo         Boolean  @default(true)
-  created_at    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-
-  estufas EstufaUsuario[]
+  id            String          @id @default(uuid()) @db.Uuid
+  email         String          @unique @db.VarChar(255)
+  usuario       String          @unique @db.VarChar(100)
+  senha_hash    String          @map("senha_hash") @db.VarChar(255)
+  nome_completo String?         @map("nome_completo") @db.VarChar(255)
+  ativo         Boolean         @default(true)
+  role          Role            @default(USER)
+  created_at    DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  estufas       EstufaUsuario[]
 
   @@map("usuario")
 }
 
 model EstufaUsuario {
-  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                 String    @id @default(uuid())
   estufa_id          String    @map("estufa_id") @db.Uuid
   usuario_id         String    @map("usuario_id") @db.Uuid
-  role               String    @db.VarChar(50)
+  role               Role      @default(USER)
   data_acesso_inicio DateTime  @default(now()) @map("data_acesso_inicio") @db.Timestamp(6)
   data_acesso_fim    DateTime? @map("data_acesso_fim") @db.Timestamp(6)
   estufa             Estufa    @relation(fields: [estufa_id], references: [id], onDelete: Cascade)
@@ -57,19 +36,29 @@ model EstufaUsuario {
 }
 
 model Estufa {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome            String   @db.VarChar(200)
-  localizacao     String?  @db.VarChar(500)
+  id              String          @id @default(uuid()) @db.Uuid
+  nome            String          @db.VarChar(200)
+  localizacao     String?         @db.VarChar(500)
   largura         Float
   altura          Float
   comprimento     Float
-  volume_total    Float?   @map("volume_total")
-  status          String   @default("ativa") @db.VarChar(50)
-  firmware_versao String?  @map("firmware_versao") @db.VarChar(50)
-  created_at      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-
-  usuarios EstufaUsuario[]
+  volume_total    Float?          @map("volume_total")
+  status          String          @default("ativa") @db.VarChar(50)
+  firmware_versao String?         @map("firmware_versao") @db.VarChar(50)
+  exaustor_ligado Boolean         @default(false) @map("exaustor_ligado")
+  ventilador_ligado Boolean       @default(false) @map("ventilador_ligado")
+  led_ligado      Boolean         @default(false) @map("led_ligado")
+  temperatura     Float?          @default(25.0)
+  umidade         Float?          @default(60.0)
+  created_at      DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  codigo_vinculo  String          @unique @default(uuid()) @map("codigo_vinculo") @db.VarChar(100)
+  usuarios        EstufaUsuario[]
 
   @@map("estufa")
+}
+
+enum Role {
+  ADMIN
+  USER
 }
