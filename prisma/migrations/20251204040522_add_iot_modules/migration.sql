@@ -3,8 +3,8 @@ CREATE TYPE "ModuloTipo" AS ENUM ('CO2', 'IRRIGACAO', 'ILUMINACAO', 'CLIMA', 'NU
 
 -- CreateTable
 CREATE TABLE "modulo" (
-    "id" TEXT NOT NULL,
-    "estufa_id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "estufa_id" UUID NOT NULL,
     "tipo" "ModuloTipo" NOT NULL,
     "nome" VARCHAR(100) NOT NULL,
     "ativo" BOOLEAN NOT NULL DEFAULT true,
@@ -17,8 +17,8 @@ CREATE TABLE "modulo" (
 
 -- CreateTable
 CREATE TABLE "sensor" (
-    "id" TEXT NOT NULL,
-    "modulo_id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "modulo_id" UUID NOT NULL,
     "tipo" VARCHAR(50) NOT NULL,
     "unidade" VARCHAR(20) NOT NULL,
     "valor_atual" DOUBLE PRECISION,
@@ -31,8 +31,8 @@ CREATE TABLE "sensor" (
 
 -- CreateTable
 CREATE TABLE "historico_sensor" (
-    "id" TEXT NOT NULL,
-    "sensor_id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "sensor_id" UUID NOT NULL,
     "valor" DOUBLE PRECISION NOT NULL,
     "timestamp" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -41,8 +41,8 @@ CREATE TABLE "historico_sensor" (
 
 -- CreateTable
 CREATE TABLE "atuador" (
-    "id" TEXT NOT NULL,
-    "modulo_id" TEXT NOT NULL,
+    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "modulo_id" UUID NOT NULL,
     "tipo" VARCHAR(50) NOT NULL,
     "nome" VARCHAR(100) NOT NULL,
     "estado" BOOLEAN NOT NULL DEFAULT false,

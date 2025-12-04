@@ -1,3 +1,9 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
 generator client {
   provider = "prisma-client-js"
 }
@@ -7,26 +13,41 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  ADMIN
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  role      Role     @default(USER)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 model Usuario {
-  id            String          @id @default(uuid()) @db.Uuid
-  email         String          @unique @db.VarChar(255)
-  usuario       String          @unique @db.VarChar(100)
-  senha_hash    String          @map("senha_hash") @db.VarChar(255)
-  nome_completo String?         @map("nome_completo") @db.VarChar(255)
-  ativo         Boolean         @default(true)
-  role          Role            @default(USER)
-  created_at    DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at    DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  estufas       EstufaUsuario[]
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique @db.VarChar(255)
+  usuario       String   @unique @db.VarChar(100)
+  senha_hash    String   @map("senha_hash") @db.VarChar(255)
+  nome_completo String?  @map("nome_completo") @db.VarChar(255)
+  ativo         Boolean  @default(true)
+  created_at    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at    DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  estufas EstufaUsuario[]
 
   @@map("usuario")
 }
 
 model EstufaUsuario {
-  id                 String    @id @default(uuid())
+  id                 String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   estufa_id          String    @map("estufa_id") @db.Uuid
   usuario_id         String    @map("usuario_id") @db.Uuid
-  role               Role      @default(USER)
+  role               String    @db.VarChar(50)
   data_acesso_inicio DateTime  @default(now()) @map("data_acesso_inicio") @db.Timestamp(6)
   data_acesso_fim    DateTime? @map("data_acesso_fim") @db.Timestamp(6)
   estufa             Estufa    @relation(fields: [estufa_id], references: [id], onDelete: Cascade)
@@ -35,7 +56,26 @@ model EstufaUsuario {
   @@map("estufa_usuario")
 }
 
-// Enum para tipos de módulos
+model Estufa {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome            String   @db.VarChar(200)
+  localizacao     String?  @db.VarChar(500)
+  largura         Float
+  altura          Float
+  comprimento     Float
+  volume_total    Float?   @map("volume_total")
+  status          String   @default("ativa") @db.VarChar(50)
+  firmware_versao String?  @map("firmware_versao") @db.VarChar(50)
+  created_at      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  usuarios EstufaUsuario[]
+  modulos  Modulo[]
+
+  @@map("estufa")
+}
+
+// Enum para tipos de módulos IoT
 enum ModuloTipo {
   CO2
   IRRIGACAO
@@ -46,93 +86,63 @@ enum ModuloTipo {
 
 // Módulo IoT
 model Modulo {
-  id            String       @id @default(uuid())
-  estufa_id     String       @map("estufa_id") @db.Uuid
-  tipo          ModuloTipo
-  nome          String       @db.VarChar(100)
-  ativo         Boolean      @default(true)
-  configuracao  Json?        // Configurações específicas do módulo
-  created_at    DateTime     @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at    DateTime     @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  
-  estufa        Estufa       @relation(fields: [estufa_id], references: [id], onDelete: Cascade)
-  sensores      Sensor[]
-  atuadores     Atuador[]
-  
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  estufa_id    String     @map("estufa_id") @db.Uuid
+  tipo         ModuloTipo
+  nome         String     @db.VarChar(100)
+  ativo        Boolean    @default(true)
+  configuracao Json?
+  created_at   DateTime   @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at   DateTime   @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+
+  estufa    Estufa    @relation(fields: [estufa_id], references: [id], onDelete: Cascade)
+  sensores  Sensor[]
+  atuadores Atuador[]
+
   @@map("modulo")
 }
 
 // Sensor (leituras)
 model Sensor {
-  id             String       @id @default(uuid())
-  modulo_id      String       @map("modulo_id")
-  tipo           String       @db.VarChar(50) // "co2", "ph", "ec", "temperatura_agua", etc
-  unidade        String       @db.VarChar(20) // "ppm", "°C", "mS/cm", "%"
-  valor_atual    Float?       @map("valor_atual")
-  valor_min      Float?       @map("valor_min") // Limite mínimo
-  valor_max      Float?       @map("valor_max") // Limite máximo
-  ultima_leitura DateTime?    @map("ultima_leitura") @db.Timestamp(6)
-  
-  modulo         Modulo       @relation(fields: [modulo_id], references: [id], onDelete: Cascade)
-  historico      HistoricoSensor[]
-  
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modulo_id      String    @map("modulo_id") @db.Uuid
+  tipo           String    @db.VarChar(50)
+  unidade        String    @db.VarChar(20)
+  valor_atual    Float?    @map("valor_atual")
+  valor_min      Float?    @map("valor_min")
+  valor_max      Float?    @map("valor_max")
+  ultima_leitura DateTime? @map("ultima_leitura") @db.Timestamp(6)
+
+  modulo    Modulo            @relation(fields: [modulo_id], references: [id], onDelete: Cascade)
+  historico HistoricoSensor[]
+
   @@map("sensor")
 }
 
 // Histórico de sensores (para gráficos)
 model HistoricoSensor {
-  id            String       @id @default(uuid())
-  sensor_id     String       @map("sensor_id")
-  valor         Float
-  timestamp     DateTime     @default(now()) @db.Timestamp(6)
-  
-  sensor        Sensor       @relation(fields: [sensor_id], references: [id], onDelete: Cascade)
-  
-  @@map("historico_sensor")
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sensor_id String   @map("sensor_id") @db.Uuid
+  valor     Float
+  timestamp DateTime @default(now()) @db.Timestamp(6)
+
+  sensor Sensor @relation(fields: [sensor_id], references: [id], onDelete: Cascade)
+
   @@index([sensor_id, timestamp])
+  @@map("historico_sensor")
 }
 
 // Atuador (controles)
 model Atuador {
-  id            String       @id @default(uuid())
-  modulo_id     String       @map("modulo_id")
-  tipo          String       @db.VarChar(50) // "valvula_co2", "bomba", "valvula_ph_mais", etc
-  nome          String       @db.VarChar(100)
-  estado        Boolean      @default(false) // ligado/desligado
-  modo          String       @default("manual") @db.VarChar(20) // "manual" ou "automatico"
-  ultima_acao   DateTime?    @map("ultima_acao") @db.Timestamp(6)
-  
-  modulo        Modulo       @relation(fields: [modulo_id], references: [id], onDelete: Cascade)
-  
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  modulo_id   String    @map("modulo_id") @db.Uuid
+  tipo        String    @db.VarChar(50)
+  nome        String    @db.VarChar(100)
+  estado      Boolean   @default(false)
+  modo        String    @default("manual") @db.VarChar(20)
+  ultima_acao DateTime? @map("ultima_acao") @db.Timestamp(6)
+
+  modulo Modulo @relation(fields: [modulo_id], references: [id], onDelete: Cascade)
+
   @@map("atuador")
-}
-
-
-model Estufa {
-  id              String          @id @default(uuid()) @db.Uuid
-  nome            String          @db.VarChar(200)
-  localizacao     String?         @db.VarChar(500)
-  largura         Float
-  altura          Float
-  comprimento     Float
-  volume_total    Float?          @map("volume_total")
-  status          String          @default("ativa") @db.VarChar(50)
-  firmware_versao String?         @map("firmware_versao") @db.VarChar(50)
-  exaustor_ligado Boolean         @default(false) @map("exaustor_ligado")
-  ventilador_ligado Boolean       @default(false) @map("ventilador_ligado")
-  led_ligado      Boolean         @default(false) @map("led_ligado")
-  temperatura     Float?          @default(25.0)
-  umidade         Float?          @default(60.0)
-  created_at      DateTime        @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at      DateTime        @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
-  codigo_vinculo  String          @unique @default(uuid()) @map("codigo_vinculo") @db.VarChar(100)
-  usuarios        EstufaUsuario[]
-  modulos         Modulo[]
-
-  @@map("estufa")
-}
-
-enum Role {
-  ADMIN
-  USER
 }
