@@ -1,11 +1,15 @@
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('ADMIN', 'USER');
+
 -- CreateTable
 CREATE TABLE "usuario" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" UUID NOT NULL,
     "email" VARCHAR(255) NOT NULL,
     "usuario" VARCHAR(100) NOT NULL,
     "senha_hash" VARCHAR(255) NOT NULL,
     "nome_completo" VARCHAR(255),
     "ativo" BOOLEAN NOT NULL DEFAULT true,
+    "role" "Role" NOT NULL DEFAULT 'USER',
     "created_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updated_at" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -14,10 +18,10 @@ CREATE TABLE "usuario" (
 
 -- CreateTable
 CREATE TABLE "estufa_usuario" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" TEXT NOT NULL,
     "estufa_id" UUID NOT NULL,
     "usuario_id" UUID NOT NULL,
-    "role" VARCHAR(50) NOT NULL,
+    "role" "Role" NOT NULL DEFAULT 'USER',
     "data_acesso_inicio" TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "data_acesso_fim" TIMESTAMP(6),
 
@@ -26,7 +30,7 @@ CREATE TABLE "estufa_usuario" (
 
 -- CreateTable
 CREATE TABLE "estufa" (
-    "id" UUID NOT NULL DEFAULT gen_random_uuid(),
+    "id" UUID NOT NULL,
     "nome" VARCHAR(200) NOT NULL,
     "localizacao" VARCHAR(500),
     "largura" DOUBLE PRECISION NOT NULL,

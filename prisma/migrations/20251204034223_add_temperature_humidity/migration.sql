@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "estufa" ADD COLUMN     "temperatura" DOUBLE PRECISION DEFAULT 25.0,
+ADD COLUMN     "umidade" DOUBLE PRECISION DEFAULT 60.0;
