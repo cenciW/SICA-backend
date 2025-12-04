@@ -1,7 +1,7 @@
 export class SicaResponse<T> {
   private readonly data?: T;
-  private readonly messageText: string;
-  private readonly statusCode: number;
+  private readonly message: string;
+  private readonly status: number;
 
   constructor({
     message,
@@ -13,7 +13,7 @@ export class SicaResponse<T> {
     data?: T;
   }) {
     this.data = data;
-    this.messageText = message;
-    this.statusCode = status;
+    this.message = message;
+    this.status = status;
   }
 }
