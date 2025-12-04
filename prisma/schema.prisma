@@ -48,18 +48,23 @@ model EstufaUsuario {
 }
 
 model Estufa {
-  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  nome            String   @db.VarChar(200)
-  localizacao     String?  @db.VarChar(500)
-  largura         Float
-  altura          Float
-  comprimento     Float
-  volume_total    Float?   @map("volume_total")
-  codigo_vinculo  String?  @unique @db.VarChar(100)
-  status          String   @default("ativa") @db.VarChar(50)
-  firmware_versao String?  @map("firmware_versao") @db.VarChar(50)
-  created_at      DateTime @default(now()) @map("created_at") @db.Timestamp(6)
-  updated_at      DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  nome              String   @db.VarChar(200)
+  localizacao       String?  @db.VarChar(500)
+  largura           Float
+  altura            Float
+  comprimento       Float
+  volume_total      Float?   @map("volume_total")
+  codigo_vinculo    String?  @unique @db.VarChar(100)
+  status            String   @default("ativa") @db.VarChar(50)
+  firmware_versao   String?  @map("firmware_versao") @db.VarChar(50)
+  exaustor_ligado   Boolean  @default(false) @map("exaustor_ligado")
+  ventilador_ligado Boolean  @default(false) @map("ventilador_ligado")
+  led_ligado        Boolean  @default(false) @map("led_ligado")
+  temperatura       Float?   @default(25.0)
+  umidade           Float?   @default(60.0)
+  created_at        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updated_at        DateTime @default(now()) @updatedAt @map("updated_at") @db.Timestamp(6)
 
   usuarios EstufaUsuario[]
   modulos  Modulo[]

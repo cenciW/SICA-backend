@@ -98,13 +98,15 @@ export class EstufaService {
       throw new ConflictException('Usuário já vinculado a esta estufa.');
     }
 
-    return this.prisma.estufaUsuario.create({
+    await this.prisma.estufaUsuario.create({
       data: {
         estufa_id: estufa.id,
         usuario_id: usuarioId,
         role: 'USER',
       },
     });
+
+    return estufa;
   }
 
   async toggleDevice(id: string, device: string, state: boolean) {
