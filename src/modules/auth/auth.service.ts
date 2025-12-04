@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UsuarioService } from '../usuario/usuario.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import { Role } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
@@ -40,6 +41,22 @@ export class AuthService {
       nome_completo: userDto.name,
       ativo: true,
     };
-    return this.usuarioService.create(createUsuarioDto);
+    const createdUser = await this.usuarioService.create(createUsuarioDto);
+
+    // Return same format as login
+    const payload = {
+      email: createdUser.email,
+      sub: createdUser.id,
+      role: Role.USER,
+    };
+    return {
+      access_token: this.jwtService.sign(payload),
+      user: {
+        id: createdUser.id,
+        email: createdUser.email,
+        name: createdUser.nome_completo,
+        role: Role.USER,
+      },
+    };
   }
 }
