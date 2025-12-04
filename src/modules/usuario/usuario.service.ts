@@ -1,16 +1,23 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateUsuarioDto } from './dto/create-usuario.dto';
 import { UpdateUsuarioDto } from './dto/update-usuario.dto';
 import { UsuarioResponseDto } from './dto/usuario-response.dto';
 import * as bcrypt from 'bcrypt';
 import { plainToInstance } from 'class-transformer';
+import { CustomError } from 'src/utils/custom-error';
 
 @Injectable()
 export class UsuarioService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createUsuarioDto: CreateUsuarioDto): Promise<UsuarioResponseDto> {
+  async create(
+    createUsuarioDto: CreateUsuarioDto,
+  ): Promise<UsuarioResponseDto> {
     const existingUser = await this.prisma.usuario.findFirst({
       where: {
         OR: [
@@ -21,7 +28,7 @@ export class UsuarioService {
     });
 
     if (existingUser) {
-      throw new ConflictException('Email or Usuario already exists');
+      throw new CustomError('Email or Usuario already exists', 409);
     }
 
     const salt = await bcrypt.genSalt();
@@ -42,7 +49,7 @@ export class UsuarioService {
 
   async findAll(): Promise<UsuarioResponseDto[]> {
     const users = await this.prisma.usuario.findMany();
-    return users.map(user => plainToInstance(UsuarioResponseDto, user));
+    return users.map((user) => plainToInstance(UsuarioResponseDto, user));
   }
 
   async findOne(id: string): Promise<UsuarioResponseDto> {
@@ -51,7 +58,7 @@ export class UsuarioService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario with ID ${id} not found`);
+      throw new CustomError(`Usuario with ID ${id} not found`, 404);
     }
 
     return plainToInstance(UsuarioResponseDto, user);
@@ -63,17 +70,20 @@ export class UsuarioService {
     });
   }
 
-  async update(id: string, updateUsuarioDto: UpdateUsuarioDto): Promise<UsuarioResponseDto> {
+  async update(
+    id: string,
+    updateUsuarioDto: UpdateUsuarioDto,
+  ): Promise<UsuarioResponseDto> {
     const user = await this.prisma.usuario.findUnique({
       where: { id },
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario with ID ${id} not found`);
+      throw new CustomError(`Usuario with ID ${id} not found`, 404);
     }
 
     const dataToUpdate: any = { ...updateUsuarioDto };
-    
+
     if (updateUsuarioDto.senha) {
       const salt = await bcrypt.genSalt();
       dataToUpdate.senha_hash = await bcrypt.hash(updateUsuarioDto.senha, salt);
@@ -94,7 +104,7 @@ export class UsuarioService {
     });
 
     if (!user) {
-      throw new NotFoundException(`Usuario with ID ${id} not found`);
+      throw new CustomError(`Usuario with ID ${id} not found`, 404);
     }
 
     await this.prisma.usuario.delete({

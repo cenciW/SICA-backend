@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateModuloDto } from './dto/create-modulo.dto';
 import { UpdateModuloDto } from './dto/update-modulo.dto';
+import { CustomError } from 'src/utils/custom-error';
 
 @Injectable()
 export class ModuloService {
@@ -9,7 +10,7 @@ export class ModuloService {
 
   async create(createModuloDto: CreateModuloDto) {
     const { estufaId, tipo, ...data } = createModuloDto;
-    
+
     // Create module
     const modulo = await this.prisma.modulo.create({
       data: {
@@ -327,7 +328,7 @@ export class ModuloService {
     });
 
     if (!modulo) {
-      throw new NotFoundException(`Módulo com ID ${id} não encontrado`);
+      throw new CustomError(`Módulo com ID ${id} não encontrado`, 404);
     }
 
     return modulo;
@@ -357,10 +358,13 @@ export class ModuloService {
   // Toggle atuador state
   async toggleAtuador(moduloId: string, atuadorId: string, estado: boolean) {
     const modulo = await this.findOne(moduloId);
-    
+
     const atuador = modulo.atuadores.find((a) => a.id === atuadorId);
     if (!atuador) {
-      throw new NotFoundException(`Atuador com ID ${atuadorId} não encontrado no módulo`);
+      throw new CustomError(
+        `Atuador com ID ${atuadorId} não encontrado no módulo`,
+        404,
+      );
     }
 
     return this.prisma.atuador.update({

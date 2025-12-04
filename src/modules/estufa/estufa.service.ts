@@ -1,7 +1,12 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateEstufaDto } from './dto/create-estufa.dto';
 import { UpdateEstufaDto } from './dto/update-estufa.dto';
+import { CustomError } from 'src/utils/custom-error';
 
 @Injectable()
 export class EstufaService {
@@ -34,7 +39,7 @@ export class EstufaService {
     });
 
     if (!estufa) {
-      throw new NotFoundException(`Estufa with ID ${id} not found`);
+      throw new CustomError(`Estufa with ID ${id} not found`, 404);
     }
 
     return estufa;
@@ -46,7 +51,7 @@ export class EstufaService {
     });
 
     if (!estufa) {
-      throw new NotFoundException(`Estufa with ID ${id} not found`);
+      throw new CustomError(`Estufa with ID ${id} not found`, 404);
     }
 
     return this.prisma.estufa.update({
@@ -61,7 +66,7 @@ export class EstufaService {
     });
 
     if (!estufa) {
-      throw new NotFoundException(`Estufa with ID ${id} not found`);
+      throw new CustomError(`Estufa with ID ${id} not found`, 404);
     }
 
     return this.prisma.estufa.delete({
@@ -95,7 +100,7 @@ export class EstufaService {
     });
 
     if (existingLink) {
-      throw new ConflictException('Usuário já vinculado a esta estufa.');
+      throw new CustomError('Usuário já vinculado a esta estufa.', 409);
     }
 
     await this.prisma.estufaUsuario.create({
@@ -115,12 +120,12 @@ export class EstufaService {
     });
 
     if (!estufa) {
-      throw new NotFoundException(`Estufa with ID ${id} not found`);
+      throw new CustomError(`Estufa with ID ${id} not found`, 404);
     }
 
     const validDevices = ['exaustor', 'ventilador', 'led'];
     if (!validDevices.includes(device)) {
-      throw new NotFoundException(`Invalid device: ${device}`);
+      throw new CustomError(`Invalid device: ${device}`, 404);
     }
 
     return this.prisma.estufa.update({
