@@ -1,5 +1,5 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UsuarioService } from '../usuario/usuario.service';
+import { Injectable } from '@nestjs/common';
+import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
@@ -7,14 +7,14 @@ import { Role } from '@prisma/client';
 @Injectable()
 export class AuthService {
   constructor(
-    private usuarioService: UsuarioService,
+    private userService: UserService,
     private jwtService: JwtService,
   ) {}
 
   async validateUser(email: string, pass: string): Promise<any> {
-    const user = await this.usuarioService.findByEmail(email);
-    if (user && (await bcrypt.compare(pass, user.senha_hash))) {
-      const { senha_hash, ...result } = user;
+    const user = await this.userService.findByEmail(email);
+    if (user && (await bcrypt.compare(pass, user.password_hash))) {
+      const { password_hash, ...result } = user;
       return result;
     }
     return null;
@@ -27,34 +27,28 @@ export class AuthService {
       user: {
         id: user.id,
         email: user.email,
-        name: user.nome_completo,
+        name: user.full_name,
         role: user.role,
       },
     };
   }
 
   async register(userDto: any) {
-    const createUsuarioDto = {
+    const created = await this.userService.create({
       email: userDto.email,
-      usuario: userDto.email.split('@')[0], // Generate username from email
-      senha: userDto.password,
-      nome_completo: userDto.name,
-      ativo: true,
-    };
-    const createdUser = await this.usuarioService.create(createUsuarioDto);
+      username: userDto.email.split('@')[0],
+      password: userDto.password,
+      full_name: userDto.name,
+      active: true,
+    });
 
-    // Return same format as login
-    const payload = {
-      email: createdUser.email,
-      sub: createdUser.id,
-      role: Role.USER,
-    };
+    const payload = { email: created.email, sub: created.id, role: Role.USER };
     return {
       access_token: this.jwtService.sign(payload),
       user: {
-        id: createdUser.id,
-        email: createdUser.email,
-        name: createdUser.nome_completo,
+        id: created.id,
+        email: created.email,
+        name: created.full_name,
         role: Role.USER,
       },
     };

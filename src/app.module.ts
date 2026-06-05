@@ -1,17 +1,21 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from './modules/auth/auth.module';
-import { UsuarioModule } from './modules/usuario/usuario.module';
-import { EstufaModule } from './modules/estufa/estufa.module';
-import { EstufaUsuarioModule } from './modules/estufa-usuario/estufa-usuario.module';
-import { ModuloModule } from './modules/modulo/modulo.module';
+import { UserModule } from './modules/user/user.module';
+import { ProductModule } from './modules/product/product.module';
+import { UserProductModule } from './modules/user-product/user-product.module';
+import { ReadingModule } from './modules/reading/reading.module';
+import { RelayModule } from './modules/relay/relay.module';
+import { AlertModule } from './modules/alert/alert.module';
 
 @Module({
   imports: [
     AuthModule,
-    UsuarioModule,
-    EstufaModule,
-    EstufaUsuarioModule,
-    ModuloModule,
+    UserModule,
+    ProductModule,
+    UserProductModule,
+    ReadingModule,
+    RelayModule,
+    AlertModule,
   ],
   controllers: [],
   providers: [],
