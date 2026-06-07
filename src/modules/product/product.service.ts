@@ -119,6 +119,12 @@ export class ProductService {
         relay_last_action_at: up.relay_last_action_at,
         pump_state: up.pump_state,
         pump_last_action_at: up.pump_last_action_at,
+        led_on_seconds: up.led_on_seconds,
+        led_off_seconds: up.led_off_seconds,
+        led_start_on: up.led_start_on,
+        pump_on_seconds: up.pump_on_seconds,
+        pump_off_seconds: up.pump_off_seconds,
+        pump_start_on: up.pump_start_on,
       };
     });
   }
@@ -161,6 +167,12 @@ export class ProductService {
       relay_last_action_at: userProduct.relay_last_action_at,
       pump_state: userProduct.pump_state,
       pump_last_action_at: userProduct.pump_last_action_at,
+      led_on_seconds: userProduct.led_on_seconds,
+      led_off_seconds: userProduct.led_off_seconds,
+      led_start_on: userProduct.led_start_on,
+      pump_on_seconds: userProduct.pump_on_seconds,
+      pump_off_seconds: userProduct.pump_off_seconds,
+      pump_start_on: userProduct.pump_start_on,
       readings,
       alerts,
     };

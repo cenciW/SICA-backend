@@ -15,20 +15,70 @@ export class ReadingService {
     });
     if (!userProduct) throw new CustomError('Product not found', 404);
 
+    return this.persistReading(
+      userProduct,
+      dto.sensor_type,
+      dto.value,
+      dto.unit,
+    );
+  }
+
+  /**
+   * Cria a leitura, atualiza o cache (*_current / last_reading_at) e checa
+   * thresholds. Compartilhado entre o caminho REST (create) e o MQTT
+   * (ingestFromDevice).
+   */
+  private async persistReading(
+    userProduct: any,
+    sensorType: SensorType,
+    value: number,
+    unit: string,
+  ) {
     const reading = await this.prisma.reading.create({
-      data: { user_product_id: userProduct.id, ...dto },
+      data: {
+        user_product_id: userProduct.id,
+        sensor_type: sensorType,
+        value,
+        unit,
+      },
     });
 
     const cacheField =
-      dto.sensor_type === SensorType.PH ? 'ph_current' : 'ppm_current';
+      sensorType === SensorType.PH ? 'ph_current' : 'ppm_current';
     await this.prisma.userProduct.update({
       where: { id: userProduct.id },
-      data: { [cacheField]: dto.value, last_reading_at: reading.recorded_at },
+      data: { [cacheField]: value, last_reading_at: reading.recorded_at },
     });
 
-    await this.checkThresholds(userProduct, dto.sensor_type, dto.value);
+    await this.checkThresholds(userProduct, sensorType, value);
 
     return reading;
+  }
+
+  /**
+   * Ingestão de telemetria via MQTT ({clientId}/telemetry).
+   * Payload: { ph?: number, ppm?: number }.
+   */
+  async ingestFromDevice(
+    clientId: string,
+    payload: { ph?: number; ppm?: number },
+  ) {
+    const userProduct = await this.prisma.userProduct.findUnique({
+      where: { client_id: clientId },
+    });
+    if (!userProduct) return;
+
+    if (typeof payload.ph === 'number') {
+      await this.persistReading(userProduct, SensorType.PH, payload.ph, 'pH');
+    }
+    if (typeof payload.ppm === 'number') {
+      await this.persistReading(
+        userProduct,
+        SensorType.PPM,
+        payload.ppm,
+        'ppm',
+      );
+    }
   }
 
   async findAll(productId: string, query: ReadingQueryDto, userId: string) {
