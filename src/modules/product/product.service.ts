@@ -125,6 +125,8 @@ export class ProductService {
         pump_on_seconds: up.pump_on_seconds,
         pump_off_seconds: up.pump_off_seconds,
         pump_start_on: up.pump_start_on,
+        led_manual: up.led_manual,
+        pump_manual: up.pump_manual,
       };
     });
   }
@@ -173,6 +175,8 @@ export class ProductService {
       pump_on_seconds: userProduct.pump_on_seconds,
       pump_off_seconds: userProduct.pump_off_seconds,
       pump_start_on: userProduct.pump_start_on,
+      led_manual: userProduct.led_manual,
+      pump_manual: userProduct.pump_manual,
       readings,
       alerts,
     };

@@ -73,7 +73,7 @@ model UserProduct {
   ppm_current     Float?
   last_reading_at DateTime? @db.Timestamp(6)
 
-  // Config de ciclo (segundos). 0/0 = off, N/0 = sempre ligado, N/M = ciclo.
+  // Config de ciclo (legado — mantido para compatibilidade de schema).
   led_on_seconds   Int     @default(0)
   led_off_seconds  Int     @default(0)
   pump_on_seconds  Int     @default(0)
@@ -81,12 +81,33 @@ model UserProduct {
   led_start_on     Boolean @default(true)
   pump_start_on    Boolean @default(true)
 
-  product  Product   @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  user     User      @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  readings Reading[]
-  alerts   Alert[]
+  // Override manual: null = seguir schedule, true = forçado ON, false = forçado OFF
+  led_manual  Boolean?
+  pump_manual Boolean?
+
+  product   Product          @relation(fields: [product_id], references: [id], onDelete: Cascade)
+  user      User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  readings  Reading[]
+  alerts    Alert[]
+  schedules DeviceSchedule[]
 
   @@map("user_product")
+}
+
+model DeviceSchedule {
+  id              String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_product_id String      @db.Uuid
+  device          String      @db.VarChar(10) // "led" | "pump"
+  start_time      String      @db.VarChar(5)  // "HH:MM" horário local (UTC-3)
+  end_time        String      @db.VarChar(5)  // "HH:MM" horário local (UTC-3)
+  enabled         Boolean     @default(true)
+  sort_order      Int         @default(0)
+  created_at      DateTime    @default(now()) @db.Timestamp(6)
+
+  userProduct UserProduct @relation(fields: [user_product_id], references: [id], onDelete: Cascade)
+
+  @@index([user_product_id, device])
+  @@map("device_schedule")
 }
 
 enum SensorType {

@@ -1,8 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { MqttService } from '../../mqtt/mqtt.service';
-import { SetCycleDto } from './dto/set-cycle.dto';
+import { CreateScheduleDto } from './dto/create-schedule.dto';
+import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { SetManualDto } from './dto/set-manual.dto';
 import { CustomError } from 'src/utils/custom-error';
+
+// Brasil UTC-3: minutos locais + 180 = minutos UTC (mod 1440)
+const UTC_OFFSET_MIN = 180;
 
 @Injectable()
 export class RelayService {
@@ -11,108 +16,63 @@ export class RelayService {
     private mqtt: MqttService,
   ) {}
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  private async findUserProduct(productId: string, userId: string) {
+    const up = await this.prisma.userProduct.findFirst({
+      where: { product_id: productId, user_id: userId },
+    });
+    if (!up) throw new CustomError('Product not found', 404);
+    return up;
+  }
+
+  /** Converte "HH:MM" local (UTC-3) para minutos desde meia-noite em UTC. */
+  private toUtcMinutes(localTime: string): number {
+    const [h, m] = localTime.split(':').map(Number);
+    return ((h * 60 + m) + UTC_OFFSET_MIN) % 1440;
+  }
+
+  /** Lê schedules + override manual do banco e publica o cmd MQTT. */
+  private async publishSchedules(clientId: string, userProductId: string) {
+    const [up, all] = await Promise.all([
+      this.prisma.userProduct.findUnique({
+        where: { id: userProductId },
+        select: { led_manual: true, pump_manual: true },
+      }),
+      this.prisma.deviceSchedule.findMany({
+        where: { user_product_id: userProductId, enabled: true },
+        orderBy: { sort_order: 'asc' },
+      }),
+    ]);
+
+    // -1 = auto (seguir schedule), 0 = forçado OFF, 1 = forçado ON
+    const toManual = (v: boolean | null | undefined): number =>
+      v === null || v === undefined ? -1 : v ? 1 : 0;
+
+    const led = all
+      .filter((s) => s.device === 'led')
+      .map((s) => ({ start: this.toUtcMinutes(s.start_time), end: this.toUtcMinutes(s.end_time) }));
+
+    const pump = all
+      .filter((s) => s.device === 'pump')
+      .map((s) => ({ start: this.toUtcMinutes(s.start_time), end: this.toUtcMinutes(s.end_time) }));
+
+    this.mqtt.publishCmd(clientId, {
+      ts: Math.floor(Date.now() / 1000),
+      led:  { schedules: led,  manual: toManual(up?.led_manual)  },
+      pump: { schedules: pump, manual: toManual(up?.pump_manual) },
+    });
+  }
+
+  // ── Estado ────────────────────────────────────────────────────────────────
+
   async getState(productId: string, userId: string) {
-    const userProduct = await this.prisma.userProduct.findFirst({
-      where: { product_id: productId, user_id: userId },
-    });
-    if (!userProduct) throw new CustomError('Product not found', 404);
-
+    const up = await this.findUserProduct(productId, userId);
     return {
-      relay_state: userProduct.relay_state,
-      relay_last_action_at: userProduct.relay_last_action_at,
-      pump_state: userProduct.pump_state,
-      pump_last_action_at: userProduct.pump_last_action_at,
-    };
-  }
-
-  /**
-   * Toggle manual mapeado para o modelo de ciclo:
-   * - state=true  => sempre ligado (on_seconds=1, off_seconds=0)
-   * - state=false => desligado     (on_seconds=0)
-   * Como não há ciclo nesses casos, start_on é irrelevante.
-   *
-   * NÃO grava relay_state/pump_state aqui: o comando apenas é publicado no
-   * tópico cmd. O estado real só é persistido quando o firmware confirma via
-   * {clientId}/state -> applyDeviceState(). O retorno traz o estado ATUAL
-   * (último confirmado) para o app comparar enquanto aguarda a confirmação.
-   */
-  async toggle(
-    productId: string,
-    device: 'led' | 'pump',
-    state: boolean,
-    userId: string,
-  ) {
-    const userProduct = await this.prisma.userProduct.findFirst({
-      where: { product_id: productId, user_id: userId },
-    });
-    if (!userProduct) throw new CustomError('Product not found', 404);
-
-    const onSeconds = state ? 1 : 0;
-    const data =
-      device === 'led'
-        ? { led_on_seconds: onSeconds, led_off_seconds: 0 }
-        : { pump_on_seconds: onSeconds, pump_off_seconds: 0 };
-
-    const updated = await this.prisma.userProduct.update({
-      where: { id: userProduct.id },
-      data,
-    });
-
-    this.publishConfig(updated);
-
-    return {
-      id: updated.id,
-      relay_state: updated.relay_state,
-      relay_last_action_at: updated.relay_last_action_at,
-      pump_state: updated.pump_state,
-      pump_last_action_at: updated.pump_last_action_at,
-    };
-  }
-
-  /**
-   * Define a config de ciclo (segundos + start_on) por device, persiste e
-   * publica em {clientId}/cmd. Atualiza apenas os campos enviados no DTO.
-   */
-  async setCycle(productId: string, dto: SetCycleDto, userId: string) {
-    const userProduct = await this.prisma.userProduct.findFirst({
-      where: { product_id: productId, user_id: userId },
-    });
-    if (!userProduct) throw new CustomError('Product not found', 404);
-
-    const updated = await this.prisma.userProduct.update({
-      where: { id: userProduct.id },
-      data: {
-        ...(dto.led_on_seconds !== undefined && {
-          led_on_seconds: dto.led_on_seconds,
-        }),
-        ...(dto.led_off_seconds !== undefined && {
-          led_off_seconds: dto.led_off_seconds,
-        }),
-        ...(dto.led_start_on !== undefined && {
-          led_start_on: dto.led_start_on,
-        }),
-        ...(dto.pump_on_seconds !== undefined && {
-          pump_on_seconds: dto.pump_on_seconds,
-        }),
-        ...(dto.pump_off_seconds !== undefined && {
-          pump_off_seconds: dto.pump_off_seconds,
-        }),
-        ...(dto.pump_start_on !== undefined && {
-          pump_start_on: dto.pump_start_on,
-        }),
-      },
-    });
-
-    this.publishConfig(updated);
-
-    return {
-      id: updated.id,
-      led_on_seconds: updated.led_on_seconds,
-      led_off_seconds: updated.led_off_seconds,
-      led_start_on: updated.led_start_on,
-      pump_on_seconds: updated.pump_on_seconds,
-      pump_off_seconds: updated.pump_off_seconds,
-      pump_start_on: updated.pump_start_on,
+      relay_state: up.relay_state,
+      relay_last_action_at: up.relay_last_action_at,
+      pump_state: up.pump_state,
+      pump_last_action_at: up.pump_last_action_at,
     };
   }
 
@@ -124,10 +84,10 @@ export class RelayService {
     clientId: string,
     payload: { led?: boolean; pump?: boolean },
   ) {
-    const userProduct = await this.prisma.userProduct.findUnique({
+    const up = await this.prisma.userProduct.findUnique({
       where: { client_id: clientId },
     });
-    if (!userProduct) return;
+    if (!up) return;
 
     console.log(`Applying state from ${clientId}:`, payload);
 
@@ -141,34 +101,102 @@ export class RelayService {
       data.pump_last_action_at = new Date();
     }
     if (Object.keys(data).length) {
-      await this.prisma.userProduct.update({
-        where: { id: userProduct.id },
-        data,
-      });
+      await this.prisma.userProduct.update({ where: { id: up.id }, data });
     }
   }
 
-  private publishConfig(up: {
-    client_id: string;
-    led_on_seconds: number;
-    led_off_seconds: number;
-    led_start_on: boolean;
-    pump_on_seconds: number;
-    pump_off_seconds: number;
-    pump_start_on: boolean;
-  }) {
-    this.mqtt.publishCmd(up.client_id, {
-      ts: Math.floor(Date.now() / 1000),
-      led: {
-        on_seconds: up.led_on_seconds,
-        off_seconds: up.led_off_seconds,
-        start_on: up.led_start_on,
-      },
-      pump: {
-        on_seconds: up.pump_on_seconds,
-        off_seconds: up.pump_off_seconds,
-        start_on: up.pump_start_on,
+  // ── Override manual ───────────────────────────────────────────────────────
+
+  async setManual(productId: string, dto: SetManualDto, userId: string) {
+    const up = await this.findUserProduct(productId, userId);
+
+    const manualValue: boolean | null =
+      dto.state === 'auto' ? null : dto.state === 'on';
+
+    const updated = await this.prisma.userProduct.update({
+      where: { id: up.id },
+      data:
+        dto.device === 'led'
+          ? { led_manual: manualValue }
+          : { pump_manual: manualValue },
+    });
+
+    await this.publishSchedules(up.client_id, up.id);
+
+    return {
+      relay_state: updated.relay_state,
+      relay_last_action_at: updated.relay_last_action_at,
+      pump_state: updated.pump_state,
+      pump_last_action_at: updated.pump_last_action_at,
+      led_manual: updated.led_manual,
+      pump_manual: updated.pump_manual,
+    };
+  }
+
+  // ── Schedule CRUD ─────────────────────────────────────────────────────────
+
+  async getSchedules(productId: string, userId: string, device?: 'led' | 'pump') {
+    const up = await this.findUserProduct(productId, userId);
+    return this.prisma.deviceSchedule.findMany({
+      where: { user_product_id: up.id, ...(device ? { device } : {}) },
+      orderBy: { sort_order: 'asc' },
+    });
+  }
+
+  async createSchedule(productId: string, dto: CreateScheduleDto, userId: string) {
+    const up = await this.findUserProduct(productId, userId);
+
+    const schedule = await this.prisma.deviceSchedule.create({
+      data: {
+        user_product_id: up.id,
+        device: dto.device,
+        start_time: dto.start_time,
+        end_time: dto.end_time,
+        enabled: dto.enabled ?? true,
+        sort_order: dto.sort_order ?? 0,
       },
     });
+
+    await this.publishSchedules(up.client_id, up.id);
+    return schedule;
+  }
+
+  async updateSchedule(
+    productId: string,
+    scheduleId: string,
+    dto: UpdateScheduleDto,
+    userId: string,
+  ) {
+    const up = await this.findUserProduct(productId, userId);
+
+    const existing = await this.prisma.deviceSchedule.findFirst({
+      where: { id: scheduleId, user_product_id: up.id },
+    });
+    if (!existing) throw new CustomError('Schedule not found', 404);
+
+    const schedule = await this.prisma.deviceSchedule.update({
+      where: { id: scheduleId },
+      data: {
+        ...(dto.start_time !== undefined && { start_time: dto.start_time }),
+        ...(dto.end_time !== undefined && { end_time: dto.end_time }),
+        ...(dto.enabled !== undefined && { enabled: dto.enabled }),
+        ...(dto.sort_order !== undefined && { sort_order: dto.sort_order }),
+      },
+    });
+
+    await this.publishSchedules(up.client_id, up.id);
+    return schedule;
+  }
+
+  async deleteSchedule(productId: string, scheduleId: string, userId: string) {
+    const up = await this.findUserProduct(productId, userId);
+
+    const existing = await this.prisma.deviceSchedule.findFirst({
+      where: { id: scheduleId, user_product_id: up.id },
+    });
+    if (!existing) throw new CustomError('Schedule not found', 404);
+
+    await this.prisma.deviceSchedule.delete({ where: { id: scheduleId } });
+    await this.publishSchedules(up.client_id, up.id);
   }
 }
